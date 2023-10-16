@@ -1,0 +1,127 @@
+Instalação do Whatsapp
+ 
+ 
+Atualizando é instalando o nodejs
+sudo apt update && sudo apt upgrade
+curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -v
+npm -v
+ 
+Instalando o Docker
+sudo apt install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+sudo apt update
+sudo apt install docker-ce
+sudo systemctl status docker
+sudo usermod -aG docker ${USER}
+su - ${USER}
+ 
+Redis: alterar SuaSenha para sua senha segura!
+docker run --name redis-zap -p 6379:6379 -d --restart=always redis:latest redis-server --appendonly yes --requirepass "G20012008e@"
+ 
+Banco de dados: alterar SuaSenha para sua senha segura!
+docker run --name postgresql -e POSTGRES_USER=zapt -e POSTGRES_PASSWORD=G20012008e@ -p 5432:5432 -v /data:/var/lib/postgresql/data -d postgres
+ 
+Clonando zap: Você deve seguir essa orientação https://docs.github.com/pt/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
+cat ~/.ssh/id_ed25519.pub
+copia esse valor, é adiciona na sua conta do github 
+https://github.com/settings/keys
+Add SSH Key
+ 
+cd ~
+git clone seu git
+cp zap/backend/.env.example zap/backend/.env
+sudo nano zap/backend/.env
+ 
+NODE_ENV=
+BACKEND_URL=https://76telecomapi.dialogchat.com.br
+FRONTEND_URL=https://76.dialogchat.com.br
+PROXY_PORT=443
+PORT=8080
+
+DB_DIALECT=postgres
+DB_HOST=localhost
+DB_USER=wzap
+DB_PASS=G20012008e@
+DB_NAME=zap
+
+JWT_SECRET=5854f582d5871031a88f44d734309c637aa9e646
+JWT_REFRESH_SECRET=159a8e5fa33a366e012acd94ca4f12ba379e98fc
+
+REDIS_URI=redis://:G20012008e@@127.0.0.1:6379
+REDIS_OPT_LIMITER_MAX=1
+REDIS_OPT_LIMITER_DURATION=3000
+
+ 
+sudo apt-get install -y libxshmfence-dev libgbm-dev wget unzip fontconfig locales gconf-service libasound2 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libappindicator1 libnss3 lsb-release xdg-utils
+ 
+cd zap/backend
+npm install
+npm run build
+npx sequelize db:migrate
+npx sequelize db:seed:all
+ 
+sudo npm install -g pm2
+pm2 start dist/server.js --name zap-backend
+ 
+pm2 startup ubuntu -u "masm"
+ 
+sudo env PATH=\$PATH:/usr/bin pm2 startup ubuntu -u masm --hp /home/masm
+ 
+cd ../frontend
+npm install
+cp .env.example .env
+sudo nano .env
+
+REACT_APP_BACKEND_URL = https://76telecomapi.dialogchat.com.br/
+REACT_APP_HOURS_CLOSE_TICKETS_AUTO =
+
+npm run build
+ 
+pm2 start server.js --name zap-frontend
+pm2 save
+ 
+sudo apt install nginx
+sudo rm /etc/nginx/sites-enabled/default
+sudo nano /etc/nginx/sites-available/zap-frontend
+ 
+mudar o server_name para o seu dominio.
+ 
+server {
+  server_name 76telecom.dialogchat.com.br;
+ 
+  location / {
+    proxy_pass http://127.0.0.1:3333;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_cache_bypass $http_upgrade;
+  }
+}
+ 
+sudo cp /etc/nginx/sites-available/zap-frontend /etc/nginx/sites-available/zap-backend
+sudo nano /etc/nginx/sites-available/zap-backend (:8080)
+ 
+sudo ln -s /etc/nginx/sites-available/zap-frontend /etc/nginx/sites-enabled
+sudo ln -s /etc/nginx/sites-available/zap-backend /etc/nginx/sites-enabled
+ 
+sudo nano /etc/nginx/nginx.conf
+entre as tags { do http } adicionar 
+client_max_body_size 20M;
+ 
+sudo nginx -t
+sudo service nginx restart
+ 
+sudo snap install --classic certbot
+sudo apt update
+Agora adicione o certificado ao dominio configurado.
+sudo certbot --nginx
+ 
+
+
